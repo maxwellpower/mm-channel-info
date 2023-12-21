@@ -25,5 +25,5 @@ COPY . .
 RUN pip install --no-cache-dir requests
 
 # Run the script when the container launches
-CMD ["python", "./your_script_name.py"]
+CMD ["python", "./main.py"]
 

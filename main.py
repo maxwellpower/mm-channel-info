@@ -14,7 +14,7 @@
 
 # -*- coding: utf-8 -*-
 
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 
 import os
 import requests
@@ -23,6 +23,7 @@ import requests
 mattermost_url = os.environ.get('MATTERMOST_URL')
 channel_id = os.environ.get('CHANNEL_ID')
 access_token = os.environ.get('ACCESS_TOKEN')
+verify_ssl = os.environ.get('VERIFY_SSL', 'True') == 'True'  # Default to True
 
 # Headers for authentication
 headers = {
@@ -32,7 +33,7 @@ headers = {
 # Function to get channel details
 def get_channel_details(channel_id):
     channel_url = f"{mattermost_url}/api/v4/channels/{channel_id}"
-    response = requests.get(channel_url, headers=headers)
+    response = requests.get(channel_url, headers=headers, verify=verify_ssl)
     if response.status_code == 200:
         return response.json()
     else:
@@ -42,7 +43,7 @@ def get_channel_details(channel_id):
 # Function to get posts from a channel with pagination
 def get_channel_posts(channel_id, page=0, per_page=60):
     posts_url = f"{mattermost_url}/api/v4/channels/{channel_id}/posts?page={page}&per_page={per_page}"
-    response = requests.get(posts_url, headers=headers)
+    response = requests.get(posts_url, headers=headers, verify=verify_ssl)
     if response.status_code == 200:
         return response.json()
     else:
@@ -52,7 +53,7 @@ def get_channel_posts(channel_id, page=0, per_page=60):
 # Function to count reactions for a post
 def count_reactions(post_id):
     reactions_url = f"{mattermost_url}/api/v4/posts/{post_id}/reactions"
-    response = requests.get(reactions_url, headers=headers)
+    response = requests.get(reactions_url, headers=headers, verify=verify_ssl)
     if response.status_code == 200:
         return len(response.json())
     else:

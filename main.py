@@ -14,8 +14,7 @@
 
 # -*- coding: utf-8 -*-
 
-VERSION = "1.0.4"
-
+VERSION = "1.0.5"
 
 import os
 import requests
@@ -68,7 +67,7 @@ def get_all_channel_metrics(channel_id):
 
         total_posts += len(posts_data['posts'])
         for post in posts_data['posts'].values():
-            if post['parent_id']:
+            if 'parent_id' in post and post['parent_id']:
                 total_replies += 1
             total_files += len(post.get('file_ids', []))
             total_reactions += len(post.get('metadata', {}).get('reactions', []))

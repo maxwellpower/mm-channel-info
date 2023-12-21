@@ -14,16 +14,21 @@
 
 # -*- coding: utf-8 -*-
 
-VERSION = "1.0.2"
+VERSION = "1.0.3"
 
 import os
 import requests
+import urllib3
 
 # Read environment variables
 mattermost_url = os.environ.get('MATTERMOST_URL')
 channel_id = os.environ.get('CHANNEL_ID')
 access_token = os.environ.get('ACCESS_TOKEN')
 verify_ssl = os.environ.get('VERIFY_SSL', 'True') == 'True'  # Default to True
+
+# Suppress InsecureRequestWarning if SSL verification is turned off
+if not verify_ssl:
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Headers for authentication
 headers = {
@@ -63,14 +68,15 @@ def count_reactions(post_id):
 # Main function to get all channel metrics
 def get_all_channel_metrics(channel_id):
     channel_details = get_channel_details(channel_id)
-    if not channel_details:
+    if not channel_details or 'member_count' not in channel_details:
+        print("Error: Unable to fetch channel details or 'member_count' not found in response.")
         return
-
-    # Channel basic metrics
-    member_count = channel_details['member_count']
-    guest_count = channel_details['guest_count']
-    pinned_post_count = channel_details['pinnedpost_count']
-    files_count = channel_details['files_count']
+    
+    # Extracting metrics from channel details
+    member_count = channel_details.get('member_count', 0)
+    guest_count = channel_details.get('guest_count', 0)
+    pinned_post_count = channel_details.get('pinnedpost_count', 0)
+    files_count = channel_details.get('files_count', 0)
 
     # Engagement metrics
     page = 0

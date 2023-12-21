@@ -14,7 +14,8 @@
 
 # -*- coding: utf-8 -*-
 
-VERSION = "1.0.3"
+VERSION = "1.0.4"
+
 
 import os
 import requests
@@ -26,78 +27,59 @@ channel_id = os.environ.get('CHANNEL_ID')
 access_token = os.environ.get('ACCESS_TOKEN')
 verify_ssl = os.environ.get('VERIFY_SSL', 'True') == 'True'  # Default to True
 
+# Headers for authentication
+headers = {'Authorization': f'Bearer {access_token}'}
+
 # Suppress InsecureRequestWarning if SSL verification is turned off
 if not verify_ssl:
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# Headers for authentication
-headers = {
-    'Authorization': f'Bearer {access_token}',
-}
+# Function to get channel statistics
+def get_channel_stats(channel_id):
+    stats_url = f"{mattermost_url}/api/v4/channels/{channel_id}/stats"
+    response = requests.get(stats_url, headers=headers, verify=verify_ssl)
+    return response.json() if response.status_code == 200 else None
 
-# Function to get channel details
-def get_channel_details(channel_id):
-    channel_url = f"{mattermost_url}/api/v4/channels/{channel_id}"
-    response = requests.get(channel_url, headers=headers, verify=verify_ssl)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        print(f"Error fetching channel details: {response.status_code}")
-        return None
+# Function to get pinned posts
+def get_pinned_posts(channel_id):
+    pinned_url = f"{mattermost_url}/api/v4/channels/{channel_id}/pinned"
+    response = requests.get(pinned_url, headers=headers, verify=verify_ssl)
+    return response.json() if response.status_code == 200 else None
 
-# Function to get posts from a channel with pagination
-def get_channel_posts(channel_id, page=0, per_page=60):
+# Function to get all posts from a channel with pagination for counting files, replies, and reactions
+def get_all_posts_for_metrics(channel_id, page=0, per_page=200):
     posts_url = f"{mattermost_url}/api/v4/channels/{channel_id}/posts?page={page}&per_page={per_page}"
     response = requests.get(posts_url, headers=headers, verify=verify_ssl)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        print(f"Error fetching posts: {response.status_code}")
-        return None
-
-# Function to count reactions for a post
-def count_reactions(post_id):
-    reactions_url = f"{mattermost_url}/api/v4/posts/{post_id}/reactions"
-    response = requests.get(reactions_url, headers=headers, verify=verify_ssl)
-    if response.status_code == 200:
-        return len(response.json())
-    else:
-        print(f"Error counting reactions: {response.status_code}")
-        return 0
+    return response.json() if response.status_code == 200 else None
 
 # Main function to get all channel metrics
 def get_all_channel_metrics(channel_id):
-    channel_details = get_channel_details(channel_id)
-    if not channel_details or 'member_count' not in channel_details:
-        print("Error: Unable to fetch channel details or 'member_count' not found in response.")
-        return
-    
-    # Extracting metrics from channel details
-    member_count = channel_details.get('member_count', 0)
-    guest_count = channel_details.get('guest_count', 0)
-    pinned_post_count = channel_details.get('pinnedpost_count', 0)
-    files_count = channel_details.get('files_count', 0)
+    channel_stats = get_channel_stats(channel_id)
+    pinned_posts = get_pinned_posts(channel_id)
+    member_count = channel_stats['member_count'] if channel_stats else 0
+    pinned_post_count = len(pinned_posts['order']) if pinned_posts else 0
 
-    # Engagement metrics
+    total_files = total_reactions = total_replies = total_posts = 0
     page = 0
-    total_posts, total_replies, total_reactions = 0, 0, 0
     while True:
-        posts_data = get_channel_posts(channel_id, page=page)
+        posts_data = get_all_posts_for_metrics(channel_id, page=page)
         if not posts_data or len(posts_data['posts']) == 0:
             break
 
         total_posts += len(posts_data['posts'])
-        total_replies += sum(1 for post in posts_data['posts'].values() if post['parent_id'] != '')
-        total_reactions += sum(count_reactions(post_id) for post_id in posts_data['posts'])
-
+        for post in posts_data['posts'].values():
+            if post['parent_id']:
+                total_replies += 1
+            total_files += len(post.get('file_ids', []))
+            total_reactions += len(post.get('metadata', {}).get('reactions', []))
+        
         page += 1
 
     # Output all metrics
     print(f"Member Count: {member_count}")
-    print(f"Guest Count: {guest_count}")
     print(f"Pinned Post Count: {pinned_post_count}")
-    print(f"Files Count: {files_count}")
-    print(f"Total Posts: {total_posts}")
+    print(f"Files Count: {total_files}")
+    print(f"Total Posts: {total_posts}")  # This includes original posts and replies
     print(f"Total Replies: {total_replies}")
     print(f"Total Reactions: {total_reactions}")
 

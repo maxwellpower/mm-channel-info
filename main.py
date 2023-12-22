@@ -14,11 +14,14 @@
 
 # -*- coding: utf-8 -*-
 
-VERSION = "1.0.5"
+VERSION = "1.0.6"
 
 import os
 import requests
+import time
 import urllib3
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 
 # Read environment variables
 mattermost_url = os.environ.get('MATTERMOST_URL')
@@ -61,18 +64,23 @@ def get_all_channel_metrics(channel_id):
     total_files = total_reactions = total_replies = total_posts = 0
     page = 0
     while True:
-        posts_data = get_all_posts_for_metrics(channel_id, page=page)
-        if not posts_data or len(posts_data['posts']) == 0:
-            break
+        try:
+            posts_data = get_all_posts_for_metrics(channel_id, page=page)
+            if not posts_data or len(posts_data['posts']) == 0:
+                break
 
-        total_posts += len(posts_data['posts'])
-        for post in posts_data['posts'].values():
-            if 'parent_id' in post and post['parent_id']:
-                total_replies += 1
-            total_files += len(post.get('file_ids', []))
-            total_reactions += len(post.get('metadata', {}).get('reactions', []))
-        
-        page += 1
+            total_posts += len(posts_data['posts'])
+            for post in posts_data['posts'].values():
+                if 'parent_id' in post and post['parent_id']:
+                    total_replies += 1
+                total_files += len(post.get('file_ids', []))
+                total_reactions += len(post.get('metadata', {}).get('reactions', []))
+
+            page += 1
+            time.sleep(1)  # Adding a delay of 1 second between requests
+        except requests.exceptions.RequestException as e:
+            print(f"An error occurred: {e}")
+            break
 
     # Output all metrics
     print(f"Member Count: {member_count}")

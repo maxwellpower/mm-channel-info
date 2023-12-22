@@ -22,7 +22,7 @@ WORKDIR /usr/src/app
 COPY . .
 
 # Install any needed packages specified in requirements.txt
-RUN pip install --no-cache-dir requests
+RUN pip install --no-cache-dir requests urllib3
 
 # Run the script when the container launches
 CMD ["python", "./main.py"]
